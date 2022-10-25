@@ -2,8 +2,8 @@
 
 # ---------- 固定値 ----------
 # ファイル格納先,マウント先
-MOUNT_PATH="/mnt/nas"
-MOUNT_TARGET_PATH="//tosix-NAS/Multimedia/tosix/media"
+MOUNT_PATH="$1"
+MOUNT_TARGET_PATH="$2"
 
 
 # 拡張子
@@ -21,8 +21,13 @@ VIDEO_DIR="video"
 
 
 # ---------- メソッド ----------
-function GetRecordYear () {
-    RecordDatetime=`identify -verbose $1 | grep DateTime: | awk '{print $2}' | awk -F ':' '{print $1}'`
+function GetRecordYearByImage () {
+    RecordDatetime=`identify -verbose "$1" | grep DateTime: | awk '{print $2}' | awk -F ':' '{print $1}'`
+    echo $RecordDatetime
+}
+
+function GetRecordYearByVideo () {
+    RecordDatetime=`ffmpeg -i "$1" 2>&1 | grep -E 'creation_time' | head -1 | awk -F ': ' '{print $2}' | awk -F '-' '{print $1}'`
     echo $RecordDatetime
 }
 
@@ -55,7 +60,7 @@ if [[ ! -d $MOUNT_PATH ]]; then
     sudo mkdir $MOUNT_PATH
 fi
 
-sudo mount -t drvfs $MOUNT_TARGET_PATH $MOUNT_PATH
+sudo mount -t drvfs -o metadata,uid=1000,gid=1000 $MOUNT_TARGET_PATH $MOUNT_PATH
 cd $MOUNT_PATH
 
 echo '処理ファイル一覧取得中'
@@ -63,7 +68,7 @@ files=`find ./${SYNC_DIR} -maxdepth 9 -type f`
 
 for ithfile in $files;
 do
-    echo $ithfile
+    echo "$ithfile"
     # read -p "Press [Enter] key to resume."
 
     ext=${ithfile##*.}
@@ -74,39 +79,43 @@ do
         targetCategory=$IMAGE_DIR
 
     elif [[ 1 != $isImage ]]; then
-        continue
-        # isVideo=$(IsVideoExt $ext)
+        isVideo=$(IsVideoExt $ext)
 
-        # if [ 1 == $isVideo ]; then
-        #     targetCategory=$VIDEO_DIR
-        # fi
+        if [ 1 == $isVideo ]; then
+            targetCategory=$VIDEO_DIR
+        fi
     else
         # 画像・動画でない場合スキップ
         continue
     fi
 
-    if [[ "" != $targetCategory ]]; then
-        year=$(GetRecordYear $ithfile)
+    year="unknown"
+    if [[ $IMAGE_DIR == $targetCategory ]]; then
+        year=$(GetRecordYearByImage $ithfile)
 
-        # 撮影日時の情報がなければスキップ
-        if [[ -z $year ]]; then
-            continue
-        fi
+    elif [[ $VIDEO_DIR == $targetCategory ]]; then
+        year=$(GetRecordYearByVideo $ithfile)
+    fi
 
-        # 格納先がなければ作成
-        targetPath=${MOUNT_PATH}/${SAVE_DIR}/${CATEGORY_DIR}/${year}/${targetCategory}
-        if [[ ! -d $targetPath ]]; then
-            sudo mkdir -p $targetPath
-        fi
+    # 撮影日時の情報がなければスキップ
+    if [[ -z $year ]]; then
+        continue
+    fi
 
-        cp -rpf $ithfile ${targetPath}/
+    # 格納先がなければ作成
+    targetPath=${MOUNT_PATH}/${SAVE_DIR}/${CATEGORY_DIR}/${year}/${targetCategory}
+    if [[ ! -d $targetPath ]]; then
+        sudo mkdir -p $targetPath
+    fi
 
-        # 異常がなければ削除
-        if [[ -z $ERRORLEVEL ]]; then
-            rm -f $ithfile
-        else
-            ERRORLEVEL=
-            continue
-        fi
+    fname=`basename "$ithfile"`
+    cp -rpf "$ithfile" ${targetPath}/${fname}
+
+    # 異常がなければ削除
+    if [[ -z $ERRORLEVEL ]]; then
+        rm -f "$ithfile"
+    else
+        ERRORLEVEL=
+        continue
     fi
 done
