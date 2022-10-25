@@ -2,7 +2,7 @@
 
 - identify
   ```bash
-  apt install imagemagick -y
+  apt install imagemagick
   ```
 - ffmpeg
   ```bash
