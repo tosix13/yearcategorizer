@@ -64,14 +64,15 @@ sudo mount -t drvfs -o metadata,uid=1000,gid=1000 $MOUNT_TARGET_PATH $MOUNT_PATH
 cd $MOUNT_PATH
 
 echo '処理ファイル一覧取得中'
-files=`find ./${SYNC_DIR} -maxdepth 9 -type f`
+files=`find ./${SYNC_DIR} -maxdepth 9 -type f -print0 | xargs -0 ls | awk '{print "\"" $0 "\""}'`
 
 for ithfile in $files;
 do
-    echo "$ithfile"
+    ithfile="${ithfile}"
+    echo $ithfile
     # read -p "Press [Enter] key to resume."
 
-    ext=${ithfile##*.}
+    ext="${ithfile##*.}"
     isImage=$(IsImageExt $ext)
 
     targetCategory=""
@@ -91,10 +92,10 @@ do
 
     year="unknown"
     if [[ $IMAGE_DIR == $targetCategory ]]; then
-        year=$(GetRecordYearByImage $ithfile)
+        year=$(GetRecordYearByImage "$ithfile")
 
     elif [[ $VIDEO_DIR == $targetCategory ]]; then
-        year=$(GetRecordYearByVideo $ithfile)
+        year=$(GetRecordYearByVideo "$ithfile")
     fi
 
     # 撮影日時の情報がなければスキップ
@@ -109,7 +110,7 @@ do
     fi
 
     fname=`basename "$ithfile"`
-    cp -rpf "$ithfile" ${targetPath}/${fname}
+    cp -pf "$ithfile" ${targetPath}/"${fname}"
 
     # 異常がなければ削除
     if [[ -z $ERRORLEVEL ]]; then
