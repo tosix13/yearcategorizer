@@ -64,9 +64,11 @@ sudo mount -t drvfs -o metadata,uid=1000,gid=1000 $MOUNT_TARGET_PATH $MOUNT_PATH
 cd $MOUNT_PATH
 
 echo '処理ファイル一覧取得中'
-files=`find ./${SYNC_DIR} -maxdepth 9 -type f -print0 | xargs -0 ls | awk '{print "\"" $0 "\""}'`
+files=`find ./${SYNC_DIR} -maxdepth 9 -type f -print0 | xargs -0 ls`
 
-for ithfile in $files;
+# for ithfile in $files;
+# do
+while IFS= read -r ithfile;
 do
     ithfile="${ithfile}"
     echo $ithfile
@@ -119,4 +121,5 @@ do
         ERRORLEVEL=
         continue
     fi
-done
+# done
+done <<< "$files"
